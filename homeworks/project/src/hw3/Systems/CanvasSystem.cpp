@@ -49,7 +49,7 @@ void Guass_interpolation(std::vector<float>& sample_x, std::vector<float>& sampl
 		}
 		y(i) = sample_y[i] - b0;
 	}
-	bs = G.householderQr().solve(y);
+	bs = G.colPivHouseholderQr().solve(y);
 
 	for (int i = 0; i < num;++i) {
 		auto x = i * 1.0f / num;
@@ -149,7 +149,7 @@ void Centripetal(std::vector<float>& t, std::vector<Ubpa::pointf2>& input_points
 		t[i] /= t.back();
 }
 void  Foley(std::vector<float>&t, std::vector<Ubpa::pointf2>& input_points) {
-	t.resize(input_points.size());
+	/*t.resize(input_points.size());
 	t[0] = 0;
 	std::vector<float> a(input_points.size(),0.0);
 	std::vector<float> k(input_points.size(),0.0);
@@ -164,7 +164,40 @@ void  Foley(std::vector<float>&t, std::vector<Ubpa::pointf2>& input_points) {
 	for (int i = 1; i < input_points.size()-1; ++i) {
 		t[i] = t[i - 1] + (k[i] * (1.0f + 1.5f * a[i - 1] * k[i - 1] / (k[i] + k[i - 1]) + 1.5f * (a[i] * k[i] / (k[i + 1] + k[i]))));
 	}
-
+	for (int i = 1; i < input_points.size() ; ++i) {
+		t[i] /= t.back();
+	}*/
+	t.resize(input_points.size());
+	t[0] = 0;
+	std::vector<float> a;
+	int n = input_points.size();
+	a.resize(n);
+	std::vector<float> d(n, 0.0);
+	a[0] = 0;
+	for (size_t i = 1; i < n; ++i)
+		d[i] = (input_points[i] - input_points[i - 1]).norm();
+	for (size_t i = 1; i < n - 1; ++i)
+	{
+		float ai = std::acos((input_points[i] - input_points[i - 1]).normalize().dot(
+			(input_points[i] - input_points[i + 1]).normalize()));
+		a[i] = std::min(PI<float> -ai, PI<float> / 2);
+	}
+	for (size_t i = 1; i < n; ++i)
+	{
+		float b1, b2;
+		b1 = i < n - 1 ? a[i] * d[i] / (d[i] + d[i + 1]) : 0.0f;
+		b2 = i < n - 2 ? a[i + 1] * d[i + 1] / (d[i + 1] + d[i + 2]) : 0.0f;
+		//b1 = i < n - 1 ? a[i] * d[i] / (d[i] + d[i + 1]) : a[i];
+		//if (i < n - 2)
+		//	b2 = a[i + 1] * d[i + 1] / (d[i + 1] + d[i + 2]);
+		//else if (i == n - 2)
+		//	b2 = a[i + 1];
+		//else
+		//	b2 = 0.0f;
+		t[i] = t[i - 1] + d[i] * (1.0f + 1.5f * b1 + 1.5f * b2);
+	}
+	for (size_t i = 1; i < n; ++i)
+		t[i] /= t.back();
 
 }
 void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {

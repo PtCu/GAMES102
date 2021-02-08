@@ -23,7 +23,7 @@ void polygon_interpolation(std::vector<Ubpa::pointf2>& input_points, std::vector
 		}
 		y(i) = input_points[i][1];
 	}
-	as = Van.householderQr().solve(y);
+	as = Van.colPivHouseholderQr().solve(y);
 
 	Eigen::VectorXf xx(input_points.size());
 	for (auto x : panel_x) {
@@ -64,7 +64,7 @@ void Guass_interpolation(std::vector<Ubpa::pointf2>& input_points, std::vector<f
 		}
 		y(i) = input_points[i][1] - b0;
 	}
-	bs = G.householderQr().solve(y);
+	bs = G.colPivHouseholderQr().solve(y);
 
 	for (auto x : panel_x) {
 		float y = b0;
