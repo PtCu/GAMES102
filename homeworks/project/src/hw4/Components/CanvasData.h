@@ -11,7 +11,7 @@ enum class Para_Type {
 };
 
 enum class Edit_State {
-	init, dragging_point,dragging_tan
+	init, dragging_point,dragging_tan_l,dragging_tan_r
 };
 
 struct Slope

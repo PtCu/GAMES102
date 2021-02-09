@@ -355,14 +355,14 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 						}
 						if (std::abs(data->ltangent[i][0] - mouse_pos_in_canvas[0]) < point_radius && std::abs(data->ltangent[i][1] - mouse_pos_in_canvas[1]) < point_radius)
 						{
-							data->editing_tan_index = -(i + 1);
-							data->cur_edit_state = Edit_State::dragging_tan;
+							data->editing_tan_index = i + 1;
+							data->cur_edit_state = Edit_State::dragging_tan_l;
 							break;
 						}
 						if (std::abs(data->rtangent[i][0] - mouse_pos_in_canvas[0]) < point_radius && std::abs(data->rtangent[i][1] - mouse_pos_in_canvas[1]) < point_radius)
 						{
 							data->editing_tan_index = i + 1;
-							data->cur_edit_state = Edit_State::dragging_tan;
+							data->cur_edit_state = Edit_State::dragging_tan_r;
 							break;
 						}
 					}
@@ -380,10 +380,30 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 						data->last_edit_state = Edit_State::dragging_point;
 					}
 				}
-				if (data->cur_edit_state == Edit_State::dragging_tan) {
-					
+				if (data->cur_edit_state == Edit_State::dragging_tan_l) {
+					if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+					{
+						data->ltangent[data->editing_tan_index - 1] = mouse_pos_in_canvas;
+					}
+					if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+					{
+						data->cur_edit_state = Edit_State::init;
+						data->last_edit_state = Edit_State::dragging_tan_l;
+					}
+				}
+				if (data->cur_edit_state == Edit_State::dragging_tan_r) {
+					if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+					{
+						data->rtangent[data->editing_tan_index - 1] = mouse_pos_in_canvas;
+					}
+					if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+					{
+						data->cur_edit_state = Edit_State::init;
+						data->last_edit_state = Edit_State::dragging_tan_r;
+					}
 				}
 				DrawSlope(data, draw_list, origin);
+		
 			}
 
 
