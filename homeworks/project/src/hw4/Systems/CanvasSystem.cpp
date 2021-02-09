@@ -15,22 +15,135 @@ using namespace Eigen;
 constexpr int sample_num = 500;
 constexpr float base_tangent_len = 50.f;
 constexpr float t_step = 1.f / (sample_num - 1);
+constexpr float point_radius = 3.f;
+constexpr ImU32 line_col = IM_COL32(39, 117, 182, 255);
+constexpr ImU32 edit_line_col = IM_COL32(39, 117, 182, 100);
+constexpr ImU32 normal_point_col = IM_COL32(0, 255, 0, 50);
+constexpr ImU32 select_point_col = IM_COL32(0, 0, 255, 100);
+constexpr ImU32 slope_col = IM_COL32(122, 115, 116, 255);
+constexpr ImU32 select_slope_col = IM_COL32(122, 115, 116, 100);
 
 void Uniform(std::vector<float>& t, std::vector<Ubpa::pointf2>& input_points);
 void Chord(std::vector<float>& t, std::vector<Ubpa::pointf2>& input_points);
 void Centripetal(std::vector<float>& t, std::vector<Ubpa::pointf2>& input_points);
-void  Foley(std::vector<float>& t, std::vector<Ubpa::pointf2>& input_points);
+void Foley(std::vector<float>& t, std::vector<Ubpa::pointf2>& input_points);
 
+static void DrawSlope(CanvasData*, ImDrawList*, const ImVec2&);
 
-static void DrawLine(CanvasData*, ImDrawList*, const ImVec2&);
+static void DrawLine(CanvasData*, ImDrawList*, const ImVec2&, bool type);
 
-static void CubicSpline(std::vector<float>&, std::vector<Ubpa::pointf2>&, std::vector<Ubpa::pointf2>&);
+static void CubicSpline(std::vector<Ubpa::pointf2>&, std::vector<Ubpa::pointf2>&, std::vector<Slope>&);
 
 static void DrawPoints(CanvasData*, ImDrawList*, const ImVec2&);
 
+inline float h0(const float x0, const float x1, const float x)
+{
+	return (1.f + 2.f * (x - x0) / (x1 - x0)) * ((x - x1) * (x - x1)) / ((x0 - x1) * (x0 - x1));
+}
+inline float h1(const float x0, const float x1, const float x)
+{
+	return h0(x1, x0, x);
+}
+inline float H0(const float x0, const float x1, const float x)
+{
+	return (x - x0) * ((x - x1) * (x - x1)) / ((x0 - x1) * (x0 - x1));
+}
+inline float H1(const float x0, const float x1, const float x)
+{
+	return H0(x1, x0, x);
+}
+
+void SlopeSpline(std::vector<Ubpa::pointf2>& ret, std::vector<Ubpa::pointf2>& p, std::vector<Slope>& k)
+{
+	//spdlog::info("SlopeSpline");
+	for (int i = 0; i < p.size() - 1; i++)
+	{
+		float y0 = p[i][1];
+		float y1 = p[i + 1][1];
+		float dy0 = k[i].r;
+		float dy1 = k[i + 1].l;
+		for (float x = p[i][0]; x <= p[i + 1][0]; x += t_step)
+		{
+			//S = h0*y0 + h1*y1 + dy0*H0 + dy1*H1;
+			ret.push_back(Ubpa::pointf2(x,
+				y0 * h0(p[i][0], p[i + 1][0], x) +
+				y1 * h1(p[i][0], p[i + 1][0], x) +
+				dy0 * H0(p[i][0], p[i + 1][0], x) +
+				dy1 * H1(p[i][0], p[i + 1][0], x)));
+		}
+	}
+}
 
 
 //p is in the form of (ti,xi)
+void CubicSpline(std::vector<pointf2>& p, std::vector<pointf2>& output, std::vector<Slope>& k) {
+	int n = p.size() - 1; //节点数为n+1，方程数为n
+	k.resize(n+1);
+	VectorXf v(n - 1);
+	VectorXf h(n);
+	VectorXf b(n);
+	VectorXf u(n);
+	h[0] = p[1][0] - p[0][0];
+	b[0] = 6.f * (p[1][1] - p[0][1]) / h[0];
+	u[0] = 0;
+	for (int i = 1; i < n; ++i) {
+		h[i] = p[i + 1][0] - p[i][0];
+		u[i] = 2.f * (h[i] + h[i - 1]);
+		b[i] = 6.f * (p[i + 1][1] - p[i][1]) / h[i];
+		v[i - 1] = b[i] - b[i - 1];
+	}
+	VectorXf M_ = VectorXf::Zero(n - 1);
+	if (p.size() == 3) {
+		M_(0) = v(0) / u(1);
+	}
+	else if (p.size() > 3) {
+
+		SparseMatrix<float> A(n - 1, n - 1);
+		A.insert(0, 0) = u[1];
+		A.insert(0, 1) = h[1];
+		A.insert(n - 2, n - 2) = u[n - 1];
+		A.insert(n - 2, n - 3) = h[n - 2];
+		for (size_t i = 1; i < A.cols() - 1; ++i) {
+			A.insert(i, i) = u[i + 1];
+			A.insert(i, i - 1) = h[i];
+			A.insert(i, i + 1) = h[i + 1];
+		}
+		A.makeCompressed();
+		SparseLU<SparseMatrix<float>> solver;
+		solver.compute(A);
+		M_ = solver.solve(v);
+
+	}
+	VectorXf M = VectorXf::Zero(n + 1);
+	for (size_t i = 0; i < n - 1; ++i) {
+		M[i + 1] = M_[i];
+	}
+	for (int i = 0; i < n; i++) {
+		float y0 = p[i][1];
+		float y1 = p[i + 1][1];
+		float dy0 = (-h[i]) * (M[i] * 2 + M[i + 1]) / 6.f + (p[i + 1][1] - p[i][1]) / h[i];
+		float dy1 = (h[i]) * (M[i + 1] * 2 + M[i]) / 6.f + (p[i + 1][1] - p[i][1]) / h[i];
+
+		k[i].r = dy0;
+		// spdlog::info("{:.5f}", k[i].r);
+		if (i != 0)
+			k[i].l = dy0;
+		if (i == n - 1)
+			k[i + 1].l = dy1;
+
+		for (float x = p[i][0]; x < p[i + 1][0]; x += t_step) {
+			output.push_back({ x,
+				y0 * h0(p[i][0], p[i + 1][0], x) +
+				y1 * h1(p[i][0], p[i + 1][0], x) +
+				dy0 * H0(p[i][0], p[i + 1][0], x) +
+				dy1 * H1(p[i][0], p[i + 1][0], x) });
+		}
+	}
+
+
+
+}
+
 void CubicSpline(std::vector<pointf2>& p, std::vector<pointf2>& output) {
 	int n = p.size() - 1; //节点数为n+1，方程数为n
 	VectorXf v(n - 1);
@@ -51,7 +164,7 @@ void CubicSpline(std::vector<pointf2>& p, std::vector<pointf2>& output) {
 		M_(0) = v(0) / u(1);
 	}
 	else if (p.size() > 3) {
-		
+
 		SparseMatrix<float> A(n - 1, n - 1);
 		A.insert(0, 0) = u[1];
 		A.insert(0, 1) = h[1];
@@ -66,20 +179,29 @@ void CubicSpline(std::vector<pointf2>& p, std::vector<pointf2>& output) {
 		SparseLU<SparseMatrix<float>> solver;
 		solver.compute(A);
 		M_ = solver.solve(v);
-		
+
 	}
 	VectorXf M = VectorXf::Zero(n + 1);
 	for (size_t i = 0; i < n - 1; ++i) {
 		M[i + 1] = M_[i];
 	}
+	for (int i = 0; i < n; i++) {
+		float y0 = p[i][1];
+		float y1 = p[i + 1][1];
+		float dy0 = (-h[i]) * (M[i] * 2 + M[i + 1]) / 6.f + (p[i + 1][1] - p[i][1]) / h[i];
+		float dy1 = (h[i]) * (M[i + 1] * 2 + M[i]) / 6.f + (p[i + 1][1] - p[i][1]) / h[i];
 
-	for (size_t i = 0; i < n; ++i) {
-		for (float ti = p[i][0]; ti < p[i + 1][0]; ti += t_step) {
-			float xi = 1 / (6.f * h[i]) * (M[i] * std::pow(p[i + 1][0] - ti, 3) + M[i + 1] * std::pow(ti - p[i][0], 3)) + (p[i + 1][1] / h[i] - M[i + 1] * h[i] / 6.f) * (ti - p[i][0]) + (p[i][1] / h[i] - M[i] * h[i] / 6.f) * (p[i + 1][0] - ti);
-			output.push_back({ ti,xi });
+		for (float x = p[i][0]; x < p[i + 1][0]; x += t_step) {
+			output.push_back({ x,
+				y0 * h0(p[i][0], p[i + 1][0], x) +
+				y1 * h1(p[i][0], p[i + 1][0], x) +
+				dy0 * H0(p[i][0], p[i + 1][0], x) +
+				dy1 * H1(p[i][0], p[i + 1][0], x) });
 		}
 	}
-	
+
+
+
 }
 
 
@@ -102,6 +224,12 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 			if (ImGui::RadioButton("Cubic Bezier ", data->fitting_type == 1))
 				data->fitting_type = 1;
 
+			if (ImGui::RadioButton("C0 ", data->c_type == 0))
+				data->c_type = 0;
+			ImGui::SameLine();
+			if (ImGui::RadioButton("C1 ", data->c_type == 1))
+				data->c_type = 1;
+
 
 			if (ImGui::RadioButton("Unifrom ", data->para_type == Para_Type::Uniform))
 				data->para_type = Para_Type::Uniform;
@@ -114,7 +242,7 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 			ImGui::SameLine();
 			if (ImGui::RadioButton("Foley ", data->para_type == Para_Type::Foley))
 				data->para_type = Para_Type::Foley;
-	
+
 
 			// Typically you would use a BeginChild()/EndChild() pair to benefit from a clipping region + own scrolling.
 			// Here we demonstrate that this can be replaced by simple offsetting + custom drawing + PushClipRect/PopClipRect() calls.
@@ -148,7 +276,7 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 			const pointf2 mouse_pos_in_canvas(io.MousePos.x - origin.x, io.MousePos.y - origin.y);
 
 			// Pan (we use a zero mouse threshold when there's no context menu)
-		    // You may decide to make that threshold dynamic based on whether the mouse is hovering something etc.
+			// You may decide to make that threshold dynamic based on whether the mouse is hovering something etc.
 			const float mouse_threshold_for_pan = data->opt_enable_context_menu ? -1.0f : 0.0f;
 			if (is_active && ImGui::IsMouseDragging(ImGuiMouseButton_Right, mouse_threshold_for_pan))
 			{
@@ -170,7 +298,7 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 			}
 
 			draw_list->PopClipRect();
-			
+
 			if (data->cur_state == State::adding_point) {
 				if (is_hovered) {
 					if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -186,7 +314,7 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 						data->cur_state = State::done;
 
 					}
-					else if(data->last_state==State::init) {
+					else if (data->last_state == State::init) {
 						if (!data->points.empty()) {
 							data->points.pop_back();
 						}
@@ -214,7 +342,48 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 				}
 			}
 			else if (data->cur_state == State::editing) {
+				
 
+				for (int i = 0; i < data->points.size(); i++)
+				{
+					if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+						if (std::abs(data->points[i][0] - mouse_pos_in_canvas[0]) < point_radius && std::abs(data->points[i][1] - mouse_pos_in_canvas[1]) < point_radius)
+						{
+							data->editing_index = i;
+							data->cur_edit_state = Edit_State::dragging_point;
+							break;
+						}
+						if (std::abs(data->ltangent[i][0] - mouse_pos_in_canvas[0]) < point_radius && std::abs(data->ltangent[i][1] - mouse_pos_in_canvas[1]) < point_radius)
+						{
+							data->editing_tan_index = -(i + 1);
+							data->cur_edit_state = Edit_State::dragging_tan;
+							break;
+						}
+						if (std::abs(data->rtangent[i][0] - mouse_pos_in_canvas[0]) < point_radius && std::abs(data->rtangent[i][1] - mouse_pos_in_canvas[1]) < point_radius)
+						{
+							data->editing_tan_index = i + 1;
+							data->cur_edit_state = Edit_State::dragging_tan;
+							break;
+						}
+					}
+					
+				}
+				if (data->cur_edit_state ==Edit_State::dragging_point)
+				{
+					if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+					{
+						data->points[data->editing_index] = mouse_pos_in_canvas;
+					}
+					if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+					{
+						data->cur_edit_state = Edit_State::init;
+						data->last_edit_state = Edit_State::dragging_point;
+					}
+				}
+				if (data->cur_edit_state == Edit_State::dragging_tan) {
+					
+				}
+				DrawSlope(data, draw_list, origin);
 			}
 
 
@@ -232,12 +401,13 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 			}
 
 			DrawPoints(data, draw_list, origin);
-			DrawLine(data, draw_list, origin);
+			DrawLine(data, draw_list, origin,data->fitting_type);
+			
 
 		}
 
 		ImGui::End();
-	});
+		});
 }
 
 void Uniform(std::vector<float>& t, std::vector<Ubpa::pointf2>& input_points) {
@@ -270,7 +440,7 @@ void Centripetal(std::vector<float>& t, std::vector<Ubpa::pointf2>& input_points
 		t[i] /= t.back();
 }
 
-void  Foley(std::vector<float>& t, std::vector<Ubpa::pointf2>& input_points)
+void Foley(std::vector<float>& t, std::vector<Ubpa::pointf2>& input_points)
 {
 	/*t.resize(input_points.size());
 	t[0] = 0;
@@ -323,17 +493,16 @@ void  Foley(std::vector<float>& t, std::vector<Ubpa::pointf2>& input_points)
 		t[i] /= t.back();
 
 }
-static void DrawPoints(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin) {
+void DrawPoints(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin) {
 	for (size_t i = 0; i < data->points.size(); ++i) {
 		draw_list->AddCircleFilled(ImVec2(origin.x + data->points[i][0], origin.y + data->points[i][1]), 5.0f, IM_COL32(255, 0, 0, 255));
 	}
 }
-void DrawLine(
-	CanvasData* data, ImDrawList* draw_list, const ImVec2& origin) {
+void DrawLine(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin, bool type) {
 	if (data->points.size() == 2) {
 		draw_list->AddLine(ImVec2(origin.x + data->points[0][0], origin.y + data->points[0][1]), ImVec2(origin.x + data->points[1][0], origin.y + data->points[1][1]), IM_COL32(0, 255, 255, 255));
 	}
-	else if(data->points.size() >2){
+	else if (data->points.size() > 2) {
 		std::vector<Ubpa::pointf2>& input_points = data->points;
 		std::vector<float> t;
 		data->param_f(t, input_points);
@@ -345,14 +514,46 @@ void DrawLine(
 		}
 
 		std::vector<pointf2> outx, outy;
-		CubicSpline(tx, outx);
-		CubicSpline(ty, outy);
+		CubicSpline(tx, outx,data->xk);
+		CubicSpline(ty, outy,data->yk);
 
 		for (int i = 0; i < outx.size() - 1; i++)
 		{
 			draw_list->AddLine(ImVec2(origin.x + outx[i][1], origin.y + outy[i][1]), ImVec2(origin.x + outx[i + 1][1], origin.y + outy[i + 1][1]), IM_COL32(0, 255, 255, 255));
 		}
 	}
-	
+}
 
+void DrawSlope(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin) {
+	if (data->points.size() <= 2) return;
+	data->rtangent.resize(data->points.size());
+	data->ltangent.resize(data->points.size());
+	data->tangent_ratio.resize(data->points.size());
+	for (int i = 0; i < data->points.size()-1; ++i) {
+		data->tangent_ratio[i].r = base_tangent_len / Ubpa::pointf2(data->xk[i].r, data->yk[i].r).distance({ 0.f,0.f });
+		data->rtangent[i] = Ubpa::pointf2(data->points[i][0] + data->xk[i].r * data->tangent_ratio[i].r,
+			data->points[i][1] + data->yk[i].r * data->tangent_ratio[i].r);
+	}
+	for (int i = data->points.size() - 1; i > 0; i--)
+	{
+		data->tangent_ratio[i].l = base_tangent_len / Ubpa::pointf2(data->xk[i].l, data->yk[i].l).distance({ 0.f,0.f });
+		data->ltangent[i] = Ubpa::pointf2(data->points[i][0] - data->xk[i].l * data->tangent_ratio[i].l,
+			data->points[i][1] - data->yk[i].l * data->tangent_ratio[i].l);
+	}
+	for (int i = 0; i < data->points.size() - 1; i++)
+	{
+		const ImVec2 p1(origin.x + data->points[i][0], origin.y + data->points[i][1]);
+		const ImVec2 p2(origin.x + data->rtangent[i][0], origin.y + data->rtangent[i][1]);
+		draw_list->AddLine(p1, p2, slope_col, 2.f);
+		draw_list->AddCircleFilled(p2, point_radius, normal_point_col);
+		
+	}
+	for (int i = data->points.size() - 1; i > 0; i--)
+	{
+		const ImVec2 p1(origin.x + data->points[i][0], origin.y + data->points[i][1]);
+		const ImVec2 p2(origin.x + data->ltangent[i][0], origin.y + data->ltangent[i][1]);
+		draw_list->AddLine(p1, p2, slope_col, 2.f);
+		draw_list->AddCircleFilled(p2, point_radius, normal_point_col);
+		
+	}
 }
