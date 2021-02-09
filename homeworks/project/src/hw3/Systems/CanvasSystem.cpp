@@ -221,11 +221,19 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 			ImGui::SliderFloat("b0", &data->b0, 0.0f, 500.0f);
 			ImGui::SliderInt("Highest Power", &data->m, 1, 100);
 
-			ImGui::Checkbox("Unifrom", &data->opt_param[0]);
-			ImGui::Checkbox("Chord", &data->opt_param[1]); //Ridge Regression
-			ImGui::Checkbox("Centripetal", &data->opt_param[2]); //Least Squares Method
-			ImGui::Checkbox("Foley", &data->opt_param[3]);
-
+			if (ImGui::RadioButton("Unifrom ", data->para_type == Para_Type::Uniform))
+				data->para_type = Para_Type::Uniform;
+			ImGui::SameLine();
+			if (ImGui::RadioButton("Chord ", data->para_type == Para_Type::Chord))
+				data->para_type = Para_Type::Chord;
+			ImGui::SameLine();
+			if (ImGui::RadioButton("Centripetal ", data->para_type == Para_Type::Centripetal))
+				data->para_type = Para_Type::Centripetal;
+			ImGui::SameLine();
+			if (ImGui::RadioButton("Foley ", data->para_type == Para_Type::Foley))
+				data->para_type = Para_Type::Foley;
+			ImGui::SameLine();
+			
 
 			// Typically you would use a BeginChild()/EndChild() pair to benefit from a clipping
 			// region + own scrolling. Here we demonstrate that this can be replaced by simple
@@ -335,16 +343,16 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 			if (data->generate_line&& data->input_points.size() > 3) {
 				data->fitting_f = Guass_interpolation;
 				data->output_points.clear();
-				if (data->opt_param[0]) {
+				if (data->para_type==Para_Type::Uniform) {
 					data->param_f = Uniform;
 				}
-				else if (data->opt_param[1]) {
+				else if (data->para_type == Para_Type::Chord) {
 					data->param_f = Chord;
 				}
-				else if (data->opt_param[2]) {
+				else if (data->para_type == Para_Type::Centripetal) {
 					data->param_f = Centripetal;
 				}
-				else if (data->opt_param[3]) {
+				else if (data->para_type == Para_Type::Foley) {
 					data->param_f = Foley;
 
 				}

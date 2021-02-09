@@ -1,7 +1,9 @@
 #pragma once
 
 #include <UGM/UGM.h>
-
+enum class Para_Type {
+	Uniform, Chord, Centripetal, Foley
+};
 struct CanvasData {
 	std::vector<Ubpa::pointf2> input_points;
 	std::vector<Ubpa::pointf2> output_points;
@@ -12,8 +14,7 @@ struct CanvasData {
 	bool generate_line{ false };
 
 	bool opt_proc[4]{ true,true,true,true };
-	bool opt_param[4]{ true,false,false,false };
-
+	Para_Type para_type{ Para_Type::Uniform };
 	float lambda = 1.0f;
 	float b0 = 0.0f;
 	int m = 100; //函数的最高次数
