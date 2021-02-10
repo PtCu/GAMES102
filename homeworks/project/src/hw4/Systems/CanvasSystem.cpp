@@ -53,7 +53,7 @@ inline float H1(const float x0, const float x1, const float x)
 	return H0(x1, x0, x);
 }
 
-void SlopeSpline( std::vector<Ubpa::pointf2>& p, std::vector<Ubpa::pointf2>& ret, std::vector<Slope>& k)
+void SlopeSpline(std::vector<Ubpa::pointf2>& p, std::vector<Ubpa::pointf2>& ret, std::vector<Slope>& k)
 {
 	//spdlog::info("SlopeSpline");
 	for (int i = 0; i < p.size() - 1; i++)
@@ -78,7 +78,7 @@ void SlopeSpline( std::vector<Ubpa::pointf2>& p, std::vector<Ubpa::pointf2>& ret
 //p is in the form of (ti,xi)
 void CubicSpline(std::vector<pointf2>& p, std::vector<pointf2>& output, std::vector<Slope>& k) {
 	int n = p.size() - 1; //节点数为n+1，方程数为n
-	k.resize(n+1);
+	k.resize(n + 1);
 	VectorXf v(n - 1);
 	VectorXf h(n);
 	VectorXf b(n);
@@ -354,7 +354,7 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 				}
 			}
 			else if (data->cur_state == State::editing) {
-				
+
 				data->is_edit = true;
 				for (int i = 0; i < data->points.size(); i++)
 				{
@@ -378,9 +378,9 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 							break;
 						}
 					}
-					
+
 				}
-				if (data->cur_edit_state ==Edit_State::dragging_point)
+				if (data->cur_edit_state == Edit_State::dragging_point)
 				{
 					if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
 					{
@@ -393,39 +393,90 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 					}
 				}
 
-				if (data->cur_edit_state == Edit_State::dragging_tan_l) {
-					if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
-					{
-						data->ltangent[data->editing_tan_index - 1] = mouse_pos_in_canvas;
+				if (data->c_type == 0) {
+					if (data->cur_edit_state == Edit_State::dragging_tan_l) {
+						if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+						{
+							data->ltangent[data->editing_tan_index - 1] = mouse_pos_in_canvas;
 
+						}
+						if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+						{
+							data->cur_edit_state = Edit_State::init;
+							data->last_edit_state = Edit_State::dragging_tan_l;
+						}
 					}
-					if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-					{
-						data->cur_edit_state = Edit_State::init;
-						data->last_edit_state = Edit_State::dragging_tan_l;
+					else if (data->cur_edit_state == Edit_State::dragging_tan_r) {
+						if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+						{
+							data->rtangent[data->editing_tan_index - 1] = mouse_pos_in_canvas;
+						}
+						if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+						{
+							data->cur_edit_state = Edit_State::init;
+							data->last_edit_state = Edit_State::dragging_tan_r;
+						}
 					}
 				}
-				if (data->cur_edit_state == Edit_State::dragging_tan_r) {
-					if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
-					{
-						data->rtangent[data->editing_tan_index - 1] = mouse_pos_in_canvas;
+				else if (data->c_type == 1) {
+					if (data->cur_edit_state == Edit_State::dragging_tan_l) {
+						float x, y;
+						if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+						{
+							//相似三角形算距离
+							data->ltangent[data->editing_tan_index - 1] = mouse_pos_in_canvas;
+
+							float ratio_distance = data->points[data->editing_tan_index - 1].distance(data->rtangent[data->editing_tan_index - 1]) /
+								data->points[data->editing_tan_index - 1].distance(mouse_pos_in_canvas);
+							x = mouse_pos_in_canvas[0] - data->points[data->editing_tan_index - 1][0];
+							x = data->points[data->editing_tan_index - 1][0] - x * ratio_distance;
+							y = mouse_pos_in_canvas[1] - data->points[data->editing_tan_index - 1][1];
+							y = data->points[data->editing_tan_index - 1][1] - y * ratio_distance;
+							data->rtangent[data->editing_tan_index - 1] = Ubpa::pointf2(x, y);
+
+						}
+						if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+						{
+
+							data->cur_edit_state = Edit_State::init;
+							data->last_edit_state = Edit_State::dragging_tan_l;
+						}
 					}
-					if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-					{
-						data->cur_edit_state = Edit_State::init;
-						data->last_edit_state = Edit_State::dragging_tan_r;
+					else if (data->cur_edit_state == Edit_State::dragging_tan_r) {
+						float x, y;
+						if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+						{
+							data->rtangent[data->editing_tan_index - 1] = mouse_pos_in_canvas;
+
+							float ratio_distance = data->points[data->editing_tan_index - 1].distance(data->ltangent[data->editing_tan_index - 1]) /
+								data->points[data->editing_tan_index - 1].distance(mouse_pos_in_canvas);
+							x = mouse_pos_in_canvas[0] - data->points[data->editing_tan_index - 1][0];
+							x = data->points[data->editing_tan_index - 1][0] - x * ratio_distance;
+							y = mouse_pos_in_canvas[1] - data->points[data->editing_tan_index - 1][1];
+							y = data->points[data->editing_tan_index - 1][1] - y * ratio_distance;
+							data->ltangent[data->editing_tan_index - 1] = Ubpa::pointf2(x, y);
+
+						}
+						if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+						{
+
+							data->cur_edit_state = Edit_State::init;
+							data->last_edit_state = Edit_State::dragging_tan_r;
+						}
 					}
+
 				}
+
 				DrawSlope(data, draw_list, origin);
-		
+
 			}
 
 			DrawPoints(data, draw_list, origin);
 
 			DrawLine(data, draw_list, origin);
-			
-				
-			
+
+
+
 
 		}
 
@@ -584,8 +635,8 @@ void DrawLine(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin) {
 			}
 
 		}
-		
-	
+
+
 
 		for (int i = 0; i < outx.size() - 1; i++)
 		{
@@ -603,7 +654,7 @@ void DrawSlope(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin) {
 		const ImVec2 p2(origin.x + data->rtangent[i][0], origin.y + data->rtangent[i][1]);
 		draw_list->AddLine(p1, p2, slope_col, 2.f);
 		draw_list->AddCircleFilled(p2, point_radius, normal_point_col);
-		
+
 	}
 	for (int i = data->points.size() - 1; i > 0; i--)
 	{
@@ -611,6 +662,6 @@ void DrawSlope(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin) {
 		const ImVec2 p2(origin.x + data->ltangent[i][0], origin.y + data->ltangent[i][1]);
 		draw_list->AddLine(p1, p2, slope_col, 2.f);
 		draw_list->AddCircleFilled(p2, point_radius, normal_point_col);
-		
+
 	}
 }
