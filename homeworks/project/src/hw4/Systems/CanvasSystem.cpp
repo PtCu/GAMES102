@@ -30,7 +30,7 @@ void Foley(std::vector<float>& t, std::vector<Ubpa::pointf2>& input_points);
 
 static void DrawSlope(CanvasData*, ImDrawList*, const ImVec2&);
 
-static void DrawLine(CanvasData*, ImDrawList*, const ImVec2&, bool type);
+static void DrawLine(CanvasData*, ImDrawList*, const ImVec2&);
 
 static void CubicSpline(std::vector<Ubpa::pointf2>&, std::vector<Ubpa::pointf2>&, std::vector<Slope>&);
 
@@ -53,7 +53,7 @@ inline float H1(const float x0, const float x1, const float x)
 	return H0(x1, x0, x);
 }
 
-void SlopeSpline(std::vector<Ubpa::pointf2>& ret, std::vector<Ubpa::pointf2>& p, std::vector<Slope>& k)
+void SlopeSpline( std::vector<Ubpa::pointf2>& p, std::vector<Ubpa::pointf2>& ret, std::vector<Slope>& k)
 {
 	//spdlog::info("SlopeSpline");
 	for (int i = 0; i < p.size() - 1; i++)
@@ -284,6 +284,18 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 				data->scrolling[1] += io.MouseDelta.y;
 			}
 
+			if (data->para_type == Para_Type::Uniform) {
+				data->param_f = Uniform;
+			}
+			else if (data->para_type == Para_Type::Chord) {
+				data->param_f = Chord;
+			}
+			else if (data->para_type == Para_Type::Centripetal) {
+				data->param_f = Centripetal;
+			}
+			else if (data->para_type == Para_Type::Foley) {
+				data->param_f = Foley;
+			}
 
 
 			//// Draw grid + all lines in the canvas
@@ -343,7 +355,7 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 			}
 			else if (data->cur_state == State::editing) {
 				
-
+				data->is_edit = true;
 				for (int i = 0; i < data->points.size(); i++)
 				{
 					if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -380,10 +392,12 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 						data->last_edit_state = Edit_State::dragging_point;
 					}
 				}
+
 				if (data->cur_edit_state == Edit_State::dragging_tan_l) {
 					if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
 					{
 						data->ltangent[data->editing_tan_index - 1] = mouse_pos_in_canvas;
+
 					}
 					if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
 					{
@@ -406,22 +420,11 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 		
 			}
 
-
-			if (data->para_type == Para_Type::Uniform) {
-				data->param_f = Uniform;
-			}
-			else if (data->para_type == Para_Type::Chord) {
-				data->param_f = Chord;
-			}
-			else if (data->para_type == Para_Type::Centripetal) {
-				data->param_f = Centripetal;
-			}
-			else if (data->para_type == Para_Type::Foley) {
-				data->param_f = Foley;
-			}
-
 			DrawPoints(data, draw_list, origin);
-			DrawLine(data, draw_list, origin,data->fitting_type);
+
+			DrawLine(data, draw_list, origin);
+			
+				
 			
 
 		}
@@ -518,7 +521,7 @@ void DrawPoints(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin) {
 		draw_list->AddCircleFilled(ImVec2(origin.x + data->points[i][0], origin.y + data->points[i][1]), 5.0f, IM_COL32(255, 0, 0, 255));
 	}
 }
-void DrawLine(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin, bool type) {
+void DrawLine(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin) {
 	if (data->points.size() == 2) {
 		draw_list->AddLine(ImVec2(origin.x + data->points[0][0], origin.y + data->points[0][1]), ImVec2(origin.x + data->points[1][0], origin.y + data->points[1][1]), IM_COL32(0, 255, 255, 255));
 	}
@@ -532,10 +535,57 @@ void DrawLine(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin, boo
 			tx[i] = { t[i],input_points[i][0] };
 			ty[i] = { t[i],input_points[i][1] };
 		}
-
 		std::vector<pointf2> outx, outy;
-		CubicSpline(tx, outx,data->xk);
-		CubicSpline(ty, outy,data->yk);
+		data->rtangent.resize(data->points.size());
+		data->ltangent.resize(data->points.size());
+		data->tangent_ratio.resize(data->points.size());
+
+		if (data->is_edit) {
+			std::vector<Slope>& xk = data->xk;
+			std::vector<Slope>& yk = data->yk;
+			std::vector<Ubpa::pointf2>& points = data->points;
+			std::vector<Ubpa::pointf2>& rtangent = data->rtangent;
+			std::vector<Ubpa::pointf2>& ltangent = data->ltangent;
+			for (int i = 0; i < data->points.size() - 1; i++)
+			{
+				const ImVec2 p1(origin.x + points[i][0], origin.y + points[i][1]);
+				const ImVec2 p2(origin.x + rtangent[i][0], origin.y + rtangent[i][1]);
+				xk[i].r = rtangent[i][0] - points[i][0];
+				xk[i].r /= data->tangent_ratio[i].r;
+				yk[i].r = rtangent[i][1] - points[i][1];
+				yk[i].r /= data->tangent_ratio[i].r;
+			}
+			for (int i = data->points.size() - 1; i > 0; i--)
+			{
+				const ImVec2 p1(origin.x + points[i][0], origin.y + points[i][1]);
+				const ImVec2 p2(origin.x + ltangent[i][0], origin.y + ltangent[i][1]);
+				xk[i].l = points[i][0] - ltangent[i][0];
+				xk[i].l /= data->tangent_ratio[i].l;
+				yk[i].l = points[i][1] - ltangent[i][1];
+				yk[i].l /= data->tangent_ratio[i].l;
+			}
+			SlopeSpline(tx, outx, data->xk);
+			SlopeSpline(ty, outy, data->yk);
+
+		}
+		else {
+			CubicSpline(tx, outx, data->xk);
+			CubicSpline(ty, outy, data->yk);
+			for (int i = 0; i < data->points.size() - 1; ++i) {
+				data->tangent_ratio[i].r = base_tangent_len / Ubpa::pointf2(data->xk[i].r, data->yk[i].r).distance({ 0.f,0.f });
+				data->rtangent[i] = Ubpa::pointf2(data->points[i][0] + data->xk[i].r * data->tangent_ratio[i].r,
+					data->points[i][1] + data->yk[i].r * data->tangent_ratio[i].r);
+			}
+			for (int i = data->points.size() - 1; i > 0; i--)
+			{
+				data->tangent_ratio[i].l = base_tangent_len / Ubpa::pointf2(data->xk[i].l, data->yk[i].l).distance({ 0.f,0.f });
+				data->ltangent[i] = Ubpa::pointf2(data->points[i][0] - data->xk[i].l * data->tangent_ratio[i].l,
+					data->points[i][1] - data->yk[i].l * data->tangent_ratio[i].l);
+			}
+
+		}
+		
+	
 
 		for (int i = 0; i < outx.size() - 1; i++)
 		{
@@ -546,20 +596,7 @@ void DrawLine(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin, boo
 
 void DrawSlope(CanvasData* data, ImDrawList* draw_list, const ImVec2& origin) {
 	if (data->points.size() <= 2) return;
-	data->rtangent.resize(data->points.size());
-	data->ltangent.resize(data->points.size());
-	data->tangent_ratio.resize(data->points.size());
-	for (int i = 0; i < data->points.size()-1; ++i) {
-		data->tangent_ratio[i].r = base_tangent_len / Ubpa::pointf2(data->xk[i].r, data->yk[i].r).distance({ 0.f,0.f });
-		data->rtangent[i] = Ubpa::pointf2(data->points[i][0] + data->xk[i].r * data->tangent_ratio[i].r,
-			data->points[i][1] + data->yk[i].r * data->tangent_ratio[i].r);
-	}
-	for (int i = data->points.size() - 1; i > 0; i--)
-	{
-		data->tangent_ratio[i].l = base_tangent_len / Ubpa::pointf2(data->xk[i].l, data->yk[i].l).distance({ 0.f,0.f });
-		data->ltangent[i] = Ubpa::pointf2(data->points[i][0] - data->xk[i].l * data->tangent_ratio[i].l,
-			data->points[i][1] - data->yk[i].l * data->tangent_ratio[i].l);
-	}
+
 	for (int i = 0; i < data->points.size() - 1; i++)
 	{
 		const ImVec2 p1(origin.x + data->points[i][0], origin.y + data->points[i][1]);

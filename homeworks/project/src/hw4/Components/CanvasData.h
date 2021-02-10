@@ -42,7 +42,7 @@ struct CanvasData {
 	bool opt_enable_grid{ true };
 	bool opt_enable_context_menu{ true };
 	bool adding_point{ false };
-
+	bool is_edit{ false };
 	bool stop_dragg{ true };
 	int fitting_type{ 0 };
 	bool enable_add_point{ true };
