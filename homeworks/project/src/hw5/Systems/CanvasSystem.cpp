@@ -200,6 +200,10 @@ void CanvasSystem::OnUpdate(Ubpa::UECS::Schedule& schedule) {
 				data->cur_times = data->times;
 				data->generate_line = true;
 			}
+			if (data->cur_narrow_type != data->narrow_type) {
+				data->cur_narrow_type = data->narrow_type;
+				data->generate_line = true;
+			}
 			// Draw grid + all lines in the canvas
 			draw_list->PushClipRect(canvas_p0, canvas_p1, true);
 			if (data->opt_enable_grid)

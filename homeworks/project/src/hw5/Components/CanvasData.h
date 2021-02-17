@@ -21,6 +21,7 @@ struct CanvasData {
 	int times{ 10 };
 	int cur_times{ 10 };
 	Narrow_Type narrow_type{ Narrow_Type::chaikin};
+	Narrow_Type cur_narrow_type{ Narrow_Type::chaikin };
 	std::function<void(std::vector<float>&, std::vector<Ubpa::pointf2>&)> param_f;
 };
 #include "details/CanvasData_AutoRefl.inl"
