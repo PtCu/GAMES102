@@ -5,6 +5,37 @@
 #include <USRefl/USRefl.h>
 
 template<>
+struct Ubpa::USRefl::TypeInfo<Narrow_Type> :
+    TypeInfoBase<Narrow_Type>
+{
+#ifdef UBPA_USREFL_NOT_USE_NAMEOF
+    static constexpr char name[12] = "Narrow_Type";
+#endif
+    static constexpr AttrList attrs = {};
+    static constexpr FieldList fields = {
+        Field {TSTR("chaikin"), Type::chaikin},
+        Field {TSTR("cubic"), Type::cubic},
+        Field {TSTR("quad"), Type::quad},
+    };
+};
+
+template<>
+struct Ubpa::USRefl::TypeInfo<Para_Type> :
+    TypeInfoBase<Para_Type>
+{
+#ifdef UBPA_USREFL_NOT_USE_NAMEOF
+    static constexpr char name[10] = "Para_Type";
+#endif
+    static constexpr AttrList attrs = {};
+    static constexpr FieldList fields = {
+        Field {TSTR("Uniform"), Type::Uniform},
+        Field {TSTR("Chord"), Type::Chord},
+        Field {TSTR("Centripetal"), Type::Centripetal},
+        Field {TSTR("Foley"), Type::Foley},
+    };
+};
+
+template<>
 struct Ubpa::USRefl::TypeInfo<CanvasData> :
     TypeInfoBase<CanvasData>
 {
@@ -13,7 +44,30 @@ struct Ubpa::USRefl::TypeInfo<CanvasData> :
 #endif
     static constexpr AttrList attrs = {};
     static constexpr FieldList fields = {
-        
+        Field {TSTR("points"), &Type::points},
+        Field {TSTR("output_points"), &Type::output_points},
+        Field {TSTR("generate_line"), &Type::generate_line, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { false }; }},
+        }},
+        Field {TSTR("opt_enable_grid"), &Type::opt_enable_grid, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { true }; }},
+        }},
+        Field {TSTR("opt_enable_context_menu"), &Type::opt_enable_context_menu, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { true }; }},
+        }},
+        Field {TSTR("scrolling"), &Type::scrolling, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->Ubpa::valf2{ return { 0.f,0.f }; }},
+        }},
+        Field {TSTR("isOpen"), &Type::isOpen, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { false }; }},
+        }},
+        Field {TSTR("times"), &Type::times, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->int{ return { 10 }; }},
+        }},
+        Field {TSTR("narrow_type"), &Type::narrow_type, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->Narrow_Type{ return { Narrow_Type::chaikin}; }},
+        }},
+        Field {TSTR("param_f"), &Type::param_f},
     };
 };
 

@@ -13,9 +13,71 @@ struct Ubpa::USRefl::TypeInfo<State> :
 #endif
     static constexpr AttrList attrs = {};
     static constexpr FieldList fields = {
+        Field {TSTR("init"), Type::init},
         Field {TSTR("adding_point"), Type::adding_point},
         Field {TSTR("editing"), Type::editing},
         Field {TSTR("done"), Type::done},
+    };
+};
+
+template<>
+struct Ubpa::USRefl::TypeInfo<Para_Type> :
+    TypeInfoBase<Para_Type>
+{
+#ifdef UBPA_USREFL_NOT_USE_NAMEOF
+    static constexpr char name[10] = "Para_Type";
+#endif
+    static constexpr AttrList attrs = {};
+    static constexpr FieldList fields = {
+        Field {TSTR("Uniform"), Type::Uniform},
+        Field {TSTR("Chord"), Type::Chord},
+        Field {TSTR("Centripetal"), Type::Centripetal},
+        Field {TSTR("Foley"), Type::Foley},
+    };
+};
+
+template<>
+struct Ubpa::USRefl::TypeInfo<Edit_State> :
+    TypeInfoBase<Edit_State>
+{
+#ifdef UBPA_USREFL_NOT_USE_NAMEOF
+    static constexpr char name[11] = "Edit_State";
+#endif
+    static constexpr AttrList attrs = {};
+    static constexpr FieldList fields = {
+        Field {TSTR("init"), Type::init},
+        Field {TSTR("dragging_point"), Type::dragging_point},
+        Field {TSTR("dragging_tan_l"), Type::dragging_tan_l},
+        Field {TSTR("dragging_tan_r"), Type::dragging_tan_r},
+    };
+};
+
+template<>
+struct Ubpa::USRefl::TypeInfo<Slope> :
+    TypeInfoBase<Slope>
+{
+#ifdef UBPA_USREFL_NOT_USE_NAMEOF
+    static constexpr char name[6] = "Slope";
+#endif
+    static constexpr AttrList attrs = {};
+    static constexpr FieldList fields = {
+        Field {TSTR("l"), &Type::l},
+        Field {TSTR("r"), &Type::r},
+    };
+};
+
+template<>
+struct Ubpa::USRefl::TypeInfo<Ratio> :
+    TypeInfoBase<Ratio>
+{
+#ifdef UBPA_USREFL_NOT_USE_NAMEOF
+    static constexpr char name[6] = "Ratio";
+#endif
+    static constexpr AttrList attrs = {};
+    static constexpr FieldList fields = {
+        Field {TSTR("l"), &Type::l},
+        Field {TSTR("r"), &Type::r},
+        Field {TSTR(UMeta::constructor), WrapConstructor<Type()>()},
     };
 };
 
@@ -29,7 +91,72 @@ struct Ubpa::USRefl::TypeInfo<CanvasData> :
     static constexpr AttrList attrs = {};
     static constexpr FieldList fields = {
         Field {TSTR("points"), &Type::points},
-        
+        Field {TSTR("ltangent"), &Type::ltangent},
+        Field {TSTR("rtangent"), &Type::rtangent},
+        Field {TSTR("tangent_ratio"), &Type::tangent_ratio},
+        Field {TSTR("xk"), &Type::xk},
+        Field {TSTR("yk"), &Type::yk},
+        Field {TSTR("scrolling"), &Type::scrolling, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->Ubpa::valf2{ return { 0.f,0.f }; }},
+        }},
+        Field {TSTR("para_type"), &Type::para_type, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->Para_Type{ return { Para_Type::Uniform }; }},
+        }},
+        Field {TSTR("opt_enable_grid"), &Type::opt_enable_grid, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { true }; }},
+        }},
+        Field {TSTR("opt_enable_context_menu"), &Type::opt_enable_context_menu, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { true }; }},
+        }},
+        Field {TSTR("adding_point"), &Type::adding_point, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { false }; }},
+        }},
+        Field {TSTR("is_edit"), &Type::is_edit, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { false }; }},
+        }},
+        Field {TSTR("stop_dragg"), &Type::stop_dragg, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { true }; }},
+        }},
+        Field {TSTR("fitting_type"), &Type::fitting_type, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->int{ return { 0 }; }},
+        }},
+        Field {TSTR("enable_add_point"), &Type::enable_add_point, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { true }; }},
+        }},
+        Field {TSTR("edit_point"), &Type::edit_point, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->int{ return { 0 }; }},
+        }},
+        Field {TSTR("editing_index"), &Type::editing_index, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->int{ return -1; }},
+        }},
+        Field {TSTR("enable_move_point"), &Type::enable_move_point, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { false }; }},
+        }},
+        Field {TSTR("editing_tan_index"), &Type::editing_tan_index, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->int{ return 0; }},
+        }},
+        Field {TSTR("enable_move_tan"), &Type::enable_move_tan, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { false }; }},
+        }},
+        Field {TSTR("c_type"), &Type::c_type, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->bool{ return { false }; }},
+        }},
+        Field {TSTR("cur_edit_state"), &Type::cur_edit_state, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->Edit_State{ return { Edit_State::init }; }},
+        }},
+        Field {TSTR("last_edit_state"), &Type::last_edit_state, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->Edit_State{ return { Edit_State::init }; }},
+        }},
+        Field {TSTR("cur_state"), &Type::cur_state, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->State{ return { State::adding_point }; }},
+        }},
+        Field {TSTR("last_state"), &Type::last_state, AttrList {
+            Attr {TSTR(UMeta::initializer), []()->State{ return {State::init}; }},
+        }},
+        Field {TSTR("pop_back"), &Type::pop_back},
+        Field {TSTR("clear"), &Type::clear},
+        Field {TSTR("push_back"), &Type::push_back},
+        Field {TSTR("param_f"), &Type::param_f},
     };
 };
 
