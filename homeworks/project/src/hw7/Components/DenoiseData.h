@@ -24,6 +24,13 @@ struct DenoiseData {
 
 	[[UInspector::hide]]
 	Ubpa::Utopia::Mesh copy;
+
+	[[UInspector::hide]]
+	bool changed{ false };
+
+	[[UInspector::range(std::pair{ 0, 2 })]]
+	int type{ 0 };
+
 };
 
 #include "details/DenoiseData_AutoRefl.inl"

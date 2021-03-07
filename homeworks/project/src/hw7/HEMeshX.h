@@ -13,7 +13,10 @@ using HEMeshXTraits = Ubpa::HEMeshTraits<Vertex, Edge, Triangle, HalfEdge>;
 
 struct Vertex : Ubpa::TVertex<HEMeshXTraits> {
 	// you can add any attributes and mothods to Vertex
+	int idx{ -1 };
+	bool visited{ false };
 	Ubpa::pointf3 position{ 0.f };
+	Ubpa::pointf2 uv{ 0.f };
 };
 
 struct Edge : Ubpa::TEdge<HEMeshXTraits> {
