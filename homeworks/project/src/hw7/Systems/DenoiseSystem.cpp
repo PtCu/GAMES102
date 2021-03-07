@@ -1,4 +1,3 @@
-//From 优秀作业参考 http://staff.ustc.edu.cn/~lgliu/Courses/GAMES102_2020/default.html#GAMES
 
 #include "DenoiseSystem.h"
 #include "../Components/DenoiseData.h"
@@ -9,7 +8,6 @@
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 
-#define EPSILON 1E-4F //取ZERO<float>有时会报错
 #define PI 3.1415926
 using namespace std;
 using namespace Ubpa;
